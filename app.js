@@ -1,46 +1,61 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-const nunjucks = require('nunjucks');
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const path = require('path');
 
-var indexRouter = require('./routes/index');
-// var usersRouter = require('./routes/users');
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-var app = express();
-
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'njk');
-nunjucks.configure('views', { 
-  express: app,
-  watch: true,
-});
-
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', indexRouter);
-// app.use('/users', usersRouter);
+// WebSocket server logic from your server.js file
+const clients = new Map();
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
+wss.on('connection', (socket, req) => {
+  console.log('Client connected');
+
+  const clientId = Date.now();
+  const clientInfo = {
+    socket: socket,
+    roomId: null,
+  };
+
+  clients.set(clientId, clientInfo);
+
+  socket.on('message', (data) => {
+    const message = JSON.parse(data);
+    if (message.type === 'join') {
+      clientInfo.roomId = message.roomId;
+      console.log(`Client ${clientId} joined room ${message.roomId}`);
+    } else if (message.type === 'message') {
+      broadcastMessage(clientId, message.content);
+    }
+  });
+
+  socket.on('close', () => {
+    console.log('Client disconnected');
+    clients.delete(clientId);
+  });
 });
 
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+function broadcastMessage(senderId, message) {
+  const senderInfo = clients.get(senderId);
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+  if (!senderInfo || !senderInfo.roomId) {
+    return;
+  }
+
+  clients.forEach((clientInfo, clientId) => {
+    if (clientId !== senderId && clientInfo.roomId === senderInfo.roomId) {
+      clientInfo.socket.send(`${senderId}: ${message}`);
+    }
+  });
+}
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
-
-module.exports = app;
