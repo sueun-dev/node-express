@@ -30,7 +30,7 @@ messageInput.addEventListener('keydown', (event) => {
 });
 
 function startChat(roomId) {
-  socket = new WebSocket('ws://127.0.0.1:5500');
+  socket = new WebSocket(`ws://${location.hostname}:${location.port}`);
 
   socket.addEventListener('open', () => {
     onSocketOpen();
