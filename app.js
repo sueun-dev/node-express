@@ -1,19 +1,9 @@
-const express = require('express');
-const http = require('http');
 const WebSocket = require('ws');
-const path = require('path');
+const server = new WebSocket.Server({ port: 5500 });
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
-
-// WebSocket server logic from your server.js file
 const clients = new Map();
 
-wss.on('connection', (socket, req) => {
+server.on('connection', (socket, req) => {
   console.log('Client connected');
 
   const clientId = Date.now();
@@ -53,9 +43,3 @@ function broadcastMessage(senderId, message) {
     }
   });
 }
-
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
